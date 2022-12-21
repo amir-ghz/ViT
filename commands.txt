@@ -1,0 +1,18 @@
+## Download:
+scp kunbei@10.173.216.50:/home/kunbei/ViT/experiments/save/ft_GTSRB_bs128_lr0.03_wd0.0_221116_200155/checkpoints/best.pth /home/amirahsaei/Desktop/DAC/ViT/weights/best_GDS_b16.pth
+
+Running the training for GTSRB
+
+python src/train.py --exp-name ft --n-gpu 1 --tensorboard  --model-arch b16 --checkpoint-path weights/imagenet21k+imagenet2012_ViT-B_16-224.pth --image-size 224 --batch-size 16 --data-dir data/GTSRB --dataset GTSRB --num-classes 43 --train-steps 10000 --lr 0.03 --wd 0.0
+
+
+
+python src/eval.py --model-arch b16 --checkpoint-path weights/best_cifar100.pth --image-size 224 --batch-size 128 --data-dir data/CIFAR100 --dataset CIFAR100 --num-classes 100
+
+
+################# Grad evals
+python src/grad_calculator.py --n-gpu 1 --model-arch b16 --checkpoint-path weights/best_cifar10_b16.pth --image-size 224 --batch-size 8 --data-dir data/CIFAR10 --dataset CIFAR10 --num-classes 10
+
+
+## analysis FP32
+python src/resil.py --n-gpu 1 --model-arch b16 --checkpoint-path weights/best_cifar10_b16.pth --image-size 224 --batch-size 16 --data-dir data/CIFAR10 --dataset CIFAR10 --num-classes 10
