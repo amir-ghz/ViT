@@ -47,9 +47,10 @@ def random_faullt_injector(model, quantized_model, q_bw, min_bf_count, max_bf_co
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    data_loader =  datasets.CIFAR10('../data/dummyEx/CIFAR10/', train=False, transform=transform, download=True)
+    data_loader =  datasets.CIFAR10('./data/CIFAR10', train=False, transform=transform, download=True)
 
     random_idx = []
+
     for i in range(0, 1000):
         random_idx.append(random.randint(0,9999))
         
@@ -59,10 +60,6 @@ def random_faullt_injector(model, quantized_model, q_bw, min_bf_count, max_bf_co
 
     #total_batch = len(data_loader)
     total_batch = len(data_subset)
-
-
-
-
 
 
     temp_max_bf_count = max_bf_count
@@ -130,12 +127,6 @@ def random_faullt_injector(model, quantized_model, q_bw, min_bf_count, max_bf_co
                 print(analysis_list)
 
         torch.save(analysis_list, 'results.pt')
-
-
-            
-
-
-
 
 
 def eval_model(model, data_subset, total_batch, device, config):
@@ -216,15 +207,16 @@ def main():
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    data_loader =  datasets.CIFAR10('../data/dummyEx/CIFAR10/', train=False, transform=transform, download=True)
+    data_loader =  datasets.CIFAR10('./data/CIFAR10', train=False, transform=transform, download=True)
 
+    random.seed(10)
     random_idx = []
     for i in range(0, 1000):
         random_idx.append(random.randint(0,9999))
         
     sub_dataset = Subset(data_loader, random_idx)
 
-    data_subset = torch.utils.data.DataLoader(sub_dataset, config.batch_size, shuffle=True, num_workers=config.num_workers)
+    data_subset = torch.utils.data.DataLoader(sub_dataset, config.batch_size, shuffle=False, num_workers=config.num_workers)
 
     #total_batch = len(data_loader)
     total_batch = len(data_subset)
@@ -242,25 +234,12 @@ def main():
 
 
 
-    ############## Selecting the layer
-
-    target_layer = model.transformer.encoder_layers[0].attn.query.weight.data
-
-    beta = torch.max(target_layer)
-
-    alpha = torch.min(target_layer)
-
-    scaling_fac = float((beta-alpha)/((2**8)-1))
+    # quantized all model weights to INT8:
 
     quantized_model = unified_weight_quantization(model, 8)
 
-    quantized_model.eval()
 
-    #for name, param in quantized_model.named_parameters():
-        #print(name, param.data.size())
-
-    #random_faullt_injector(model, quantized_model, 16, 1000, 100000, 2000)
-
+    # accumulate gradient:
 
     iterations = iter(data_loader_train)
     quantized_model.train()
@@ -274,27 +253,7 @@ def main():
     loss = torch.nn.CrossEntropyLoss()(outputs, labels)
     loss.backward()
 
-    quantized_target_layer = quantized_model.transformer.encoder_layers[0].attn.query.weight.data
-
-    grad_tensor = quantized_model.transformer.encoder_layers[0].attn.query.weight.grad
-
-    value, index = torch.topk(grad_tensor.view(-1,), 100)
-
-    print("index len:", len(index))
-
-    for i in range(0, 10_00):
-
-        target_weight = quantized_target_layer.view(-1,)[i] 
-
-        target_weight_binary = int_to_binary(int((target_weight)/scaling_fac), 8)
-
-        binary_faulty_weight = bit_flip(target_weight_binary, random.randint(0, 7)) #random.randint(0, 7)
-
-        faulty_weight = binary_to_int(binary_faulty_weight)
-
-        with torch.no_grad():
-
-            quantized_model.transformer.encoder_layers[0].attn.query.weight.data.view(-1,)[i] = math.floor(faulty_weight*scaling_fac)
+    
 
 
 
